@@ -1,0 +1,402 @@
+<!DOCTYPE>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Valentin's radar graph generator</title>
+
+	<script src="https://d3js.org/d3.v3.min.js"></script>
+	
+
+	<!-- Font Awesome -->
+	<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.8.2/css/all.css">
+	<!-- Google Fonts -->
+	<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap">
+	<!-- Bootstrap core CSS -->
+	<link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.4.1/css/bootstrap.min.css" rel="stylesheet">
+	<!-- Material Design Bootstrap -->
+	<link href="https://cdnjs.cloudflare.com/ajax/libs/mdbootstrap/4.15.0/css/mdb.min.css" rel="stylesheet">
+	
+	<!-- JQuery -->
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+	<!-- Bootstrap tooltips -->
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.4/umd/popper.min.js"></script>
+	<!-- Bootstrap core JavaScript -->
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.4.1/js/bootstrap.min.js"></script>
+	<!-- MDB core JavaScript -->
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mdbootstrap/4.15.0/js/mdb.min.js"></script>
+
+	<script type="text/javascript">
+	
+		function loadCircularHeatMap (dataset, dom_element_to_append_to,radial_labels,segment_labels, defaultColor) {
+
+			var margin = {top: 50, right: 50, bottom: 50, left: 50};
+			var width = 1000;
+
+			var height = width;
+			var innerRadius = width/14;
+			var segmentHeight = (width - margin.top - margin.bottom - 2*innerRadius )/(2*radial_labels.length)
+
+			var chart = circularHeatChart(segment_labels.length, defaultColor)
+			.innerRadius(innerRadius)
+			.segmentHeight(segmentHeight)
+			.range(["white", "#01579b"])
+			.radialLabels(radial_labels)
+			.segmentLabels(segment_labels);
+
+			chart.accessor(function(d) {return d.value;})
+
+			var svg = d3.select(dom_element_to_append_to)
+			.selectAll('svg')
+			.data([dataset])
+			.enter()
+			.append('svg')
+			.attr("width", width + margin.left + margin.right)
+			.attr("height", height + margin.top + margin.bottom)
+			.append('g')
+			.attr("transform",
+				"translate(" + ( (width )/2 - (radial_labels.length*segmentHeight + innerRadius)  ) + "," + margin.top + ")")
+			.call(chart);
+
+			/*var tooltip = d3.select(dom_element_to_append_to)
+			.append('div')
+			.attr('class', 'tooltip');
+
+			tooltip.append('div')
+			.attr('class', 'month');
+			tooltip.append('div')
+			.attr('class', 'value');
+			tooltip.append('div')
+			.attr('class', 'type');
+
+			svg.selectAll("path")
+			.on('mouseover', function(d) {
+				tooltip.select('.month').html("<b> Month: " + d.month + "</b>");
+				tooltip.select('.type').html("<b> Type: " + d.type + "</b>");
+				tooltip.select('.value').html("<b> Value: " + d.value + "</b>");
+
+				tooltip.style('display', 'block');
+				tooltip.style('opacity',2);
+			})
+			.on('mousemove', function(d) {
+
+				tooltip.style('top', (d3.event.layerY + 10) + 'px')
+				.style('left', (d3.event.layerX - 25) + 'px');
+			})
+			.on('mouseout', function(d) {
+				tooltip.style('display', 'none');
+				tooltip.style('opacity',0);
+			}).on('click', function(d) {
+				
+			});*/
+		}
+
+		function circularHeatChart(amountOfSegments, defaultColor) {
+			var margin = {top: 20, right: 20, bottom: 20, left: 20},
+			innerRadius = 20,
+			numSegments = amountOfSegments,
+			segmentHeight = 20,
+			domain = null,
+			range = ["white", "red"],
+			accessor = function(d) {return d;},
+			radialLabels = segmentLabels = [];
+
+			function chart(selection) {
+				selection.each(function(data) {
+					var svg = d3.select(this);
+
+					var offset = innerRadius + Math.ceil(data.length / numSegments) * segmentHeight;
+					g = svg.append("g")
+						.classed("circular-heat", true)
+						.attr("transform", "translate(" + parseInt(margin.left + offset) + "," + parseInt(margin.top + offset) + ")");
+
+					var autoDomain = false;
+					if (domain === null) {
+						domain = d3.extent(data, accessor);
+						autoDomain = true;
+					}
+					var color = d3.scale.linear().domain(domain).range(range);
+					if(autoDomain)
+						domain = null;
+
+					g.selectAll("path").data(data)
+						.enter().append("path")
+						.attr("d", d3.svg.arc().innerRadius(ir).outerRadius(or).startAngle(sa).endAngle(ea))
+						.attr("stroke", function(d) {return "#4f5b69";})
+						.attr("fill", function(d) {/*return color(accessor(d));*/ return defaultColor;});
+
+					// Unique id so that the text path defs are unique - is there a better way to do this?
+					var id = d3.selectAll(".circular-heat")[0].length;
+
+					//Radial labels
+					var lsa = 0.01; //Label start angle
+					var labels = svg.append("g")
+						.classed("labels", true)
+						.classed("radial", true)
+						.attr("transform", "translate(" + parseInt(margin.left + offset) + "," + parseInt(margin.top + offset) + ")");
+
+					labels.selectAll("def")
+						.data(radialLabels).enter()
+						.append("def")
+						.append("path")
+						.attr("id", function(d, i) {return "radial-label-path-"+id+"-"+i;})
+						.attr("d", function(d, i) {
+							var r = innerRadius + ((i + 0.2) * segmentHeight);
+							return "m" + r * Math.sin(lsa) + " -" + r * Math.cos(lsa) +
+									" a" + r + " " + r + " 0 1 1 -1 0";
+						});
+
+					labels.selectAll("text")
+						.data(radialLabels).enter()
+						.append("text")
+						.append("textPath")
+						.attr("xlink:href", function(d, i) {return "#radial-label-path-"+id+"-"+i;})
+						.style("font-size", "16px")
+						.text(function(d) {return d;});
+
+					//Segment labels
+					var segmentLabelOffset = 2;
+					var r = innerRadius + Math.ceil(data.length / numSegments) * segmentHeight + segmentLabelOffset;
+					labels = svg.append("g")
+						.classed("labels", true)
+						.classed("segment", true)
+						.attr("transform", "translate(" + parseInt(margin.left + offset) + "," + parseInt(margin.top + offset) + ")");
+
+					labels.append("def")
+						.append("path")
+						.attr("id", "segment-label-path-"+id)
+						.attr("d", "m0 -" + r + " a" + r + " " + r + " 0 1 1 -1 0");
+
+					labels.selectAll("text")
+						.data(segmentLabels).enter()
+						.append("text")
+						.append("textPath")
+						.attr("xlink:href", "#segment-label-path-"+id)
+						.style("font-size", "16px")
+						.attr("startOffset", function(d, i) {return i * 100 / numSegments + "%";})
+						.text(function(d) {return d;});
+				});
+
+			}
+
+			/* Arc functions */
+			ir = function(d, i) {
+				return innerRadius + Math.floor(i/numSegments) * segmentHeight;
+			}
+			or = function(d, i) {
+				return innerRadius + segmentHeight + Math.floor(i/numSegments) * segmentHeight;
+			}
+			sa = function(d, i) {
+				return (i * 2 * Math.PI) / numSegments;
+			}
+			ea = function(d, i) {
+				return ((i + 1) * 2 * Math.PI) / numSegments;
+			}
+
+			/* Configuration getters/setters */
+			chart.margin = function(_) {
+				if (!arguments.length) return margin;
+				margin = _;
+				return chart;
+			};
+
+			chart.innerRadius = function(_) {
+				if (!arguments.length) return innerRadius;
+				innerRadius = _;
+				return chart;
+			};
+
+			chart.numSegments = function(_) {
+				if (!arguments.length) return numSegments;
+				numSegments = _;
+				return chart;
+			};
+
+			chart.segmentHeight = function(_) {
+				if (!arguments.length) return segmentHeight;
+				segmentHeight = _;
+				return chart;
+			};
+
+			chart.domain = function(_) {
+				if (!arguments.length) return domain;
+				domain = _;
+				return chart;
+			};
+
+			chart.range = function(_) {
+				if (!arguments.length) return range;
+				range = _;
+				return chart;
+			};
+
+			chart.radialLabels = function(_) {
+				if (!arguments.length) return radialLabels;
+				if (_ == null) _ = [];
+				radialLabels = _;
+				return chart;
+			};
+
+			chart.segmentLabels = function(_) {
+				if (!arguments.length) return segmentLabels;
+				if (_ == null) _ = [];
+				segmentLabels = _;
+				return chart;
+			};
+
+			chart.accessor = function(_) {
+				if (!arguments.length) return accessor;
+				accessor = _;
+				return chart;
+			};
+
+			return chart;
+		}
+	
+	</script>
+</head>
+
+<body>
+	<div class="container">
+		<div class="row">
+			<div id="chartTools">
+				<h1>Instructions</h1>
+				<h2>Creating the canvas</h2>
+				<ol>
+					<li>Choose canvas background color</li>
+					<li>Choose canvas dimensions (Circle levels and amount of slices)</li>
+					<li>Click on "Create canvas". <b>Be careful, you have to reload page to change this again. Reloading page delete all your work</b></li>
+				</ol>
+				<h2>Edit canvas</h2>
+				<ul>
+					<li>Choose any color from the Draw menu</li>
+					<li>Left click to change parcel color by your pen color</li>
+					<li>Right click to change parcel color by default background color</li>
+				</ul>
+				<h2>Important links</h2>
+				<ul>
+					<li>Graph Informations: <a href="https://datavizproject.com/data-type/spiral-heat-map/">https://datavizproject.com/data-type/spiral-heat-map/</a> </li>
+					<li>Graph library: <a href="https://d3js.org/">https://d3js.org/</a> (Sample of <a href="https://data-analytics.github.io/Circular_Heatmap/">https://data-analytics.github.io/Circular_Heatmap/</a>)</li>
+				</ul>
+				<hr>
+				<h1>Canvas</h1>
+				Background:<input type="color" id="optionColor" value="#94BC38">
+				Amount of levels: <input type="number" id="optionLevels" value="10">
+				Amount of slices: <input type="number" id="optionTowers" value="15">
+				<button class="btn btn-small btn-primary" onclick="createConfiguredCanvas(); $(this).hide(); $('#exportMenu').show(); $('html, body').animate({ scrollTop: $(document).height() }, 1000);">Create canvas</button>
+				<!--<button onclick="if(confirm('Are you sure?')) {$('#chart').empty();}">Delete canvas</button>-->
+			</div>
+		</div>
+		<div class="row">
+			<div  id="chart" oncontextmenu="return false;"></div>
+		</div>
+		<div class="row">
+			<div id="drawMenu">
+				<hr>
+				<h1>Draw menu <button class="btn btn-large" id="actualColorPreview"><i class="fas fa-paint-brush"></i></button></h1>
+				<button class="btn btn-small text-light" onclick="changeColor('#000000');" style="background-color:#000000;">Black</button>
+				<button class="btn btn-small" onclick="changeColor('#FFFFFF');" style="background-color:#FFFFFF;">White</button>
+				<button class="btn btn-small" onclick="changeColor('#94BC38');" style="background-color:#94BC38;">Green CB</button>
+				<button class="btn btn-small" onclick="changeColor('#F4EA00');" style="background-color:#F4EA00;">Yellow CB</button>
+				<button class="btn btn-small text-light" onclick="changeColor('#0C3880');" style="background-color:#0C3880;">Blue CB</button>
+				<input class="" type="color" id="drawPicker" value="#000000">		
+			</div>
+		</div>
+		<div class="row">
+			<div style="display:none" id="exportMenu">
+				<h1>Export</h1>
+				<button id="graphSaveBtn" class="btn btn-large btn-success"  onclick="saveSvg(document.getElementsByTagName('svg')[0], 'HeatMapGraph_VT.svg');">Export to SVG</button>
+			</div>
+		</div>
+	</div>
+</body>
+<script>
+
+	
+
+	var actualColor = '#00ffff';
+
+	function createConfiguredCanvas()
+	{
+		var defaultColor = $("#optionColor").val();
+		var amountOfHeightLevels = $("#optionLevels").val();
+		var amountOfTowers = $("#optionTowers").val();
+		
+		$("#optionColor").prop("disabled", true);
+		$("#optionLevels").prop("disabled", true);
+		$("#optionTowers").prop("disabled", true);
+		
+		createCanvas(defaultColor, amountOfHeightLevels, amountOfTowers);
+	}
+
+	function createCanvas(defaultColorRGB = "#FFFFFF", amountOfHeightLevels = 20, amountOfTowers = 30)
+	{
+		
+		
+		var inputData = [];
+		var radial_labels = [];
+		var segment_labels = [];
+		
+		for(let heightLevels = 0; heightLevels < amountOfHeightLevels; heightLevels++){
+			for(let towers = 0; towers < amountOfTowers; towers++){
+				inputData.push({month:towers,type:heightLevels,value:0});
+			}
+		}
+		
+		
+		for(let heightLevels = 0; heightLevels < amountOfHeightLevels; heightLevels++){
+			radial_labels.push("");
+		}
+		
+		
+		for(let towers = 0; towers < amountOfTowers; towers++){
+			segment_labels.push("");
+		}
+	  
+		loadCircularHeatMap(inputData,"#chart",radial_labels, segment_labels, defaultColorRGB);
+		
+		$("path").bind("mousedown", function(event){
+											event.preventDefault();
+											switch(event.which){
+												case 1:
+													$(this).attr("fill", actualColor);
+													break;
+												case 3:
+													$(this).attr("fill", defaultColorRGB);
+													break;
+											}
+											
+
+										});
+		
+	}
+	
+	function changeColor(newColor){
+		actualColor = newColor;
+		$('#actualColorPreview').css('background-color', actualColor);
+	}
+	
+	//source: https://stackoverflow.com/questions/23218174/how-do-i-save-export-an-svg-file-after-creating-an-svg-with-d3-js-ie-safari-an
+	function saveSvg(svgEl, name) {
+		svgEl.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+		var svgData = svgEl.outerHTML;
+		var preface = '<?xml version="1.0" standalone="no"?>\r\n';
+		var svgBlob = new Blob([preface, svgData], {type:"image/svg+xml;charset=utf-8"});
+		var svgUrl = URL.createObjectURL(svgBlob);
+		var downloadLink = document.createElement("a");
+		downloadLink.href = svgUrl;
+		downloadLink.download = name;
+		document.body.appendChild(downloadLink);
+		downloadLink.click();
+		document.body.removeChild(downloadLink);
+	}
+	
+	$(document).ready(function(){
+		$('#drawPicker').change(function(){ changeColor($(this).val());});
+		changeColor('#00FFFF');
+	
+	});
+	
+	
+						
+</script>
+</html>
